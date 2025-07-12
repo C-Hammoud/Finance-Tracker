@@ -29,7 +29,7 @@ DEBUG = True
 import os
 
 # Read a comma-separated list from env, fallback to localhost:
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS")
 
 
 # Application definition

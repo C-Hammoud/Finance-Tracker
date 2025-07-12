@@ -1,0 +1,116 @@
+{% extends 'expenses/base.html' %}
+{% load static %}
+{% block extrahead %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5 animate__animated animate__fadeIn">
+  <h2 class="mb-4 text-center">📊 Finance Dashboard</h2>
+
+  <!-- Month/Year Selector -->
+  <form class="row g-2 justify-content-center mb-4">
+    <div class="col-auto">
+      <select class="form-select shadow-sm" name="month" onchange="this.form.submit()">
+        {% for num, name in months %}
+        <option value="{{ num }}" {% if selected_month == num %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <select class="form-select shadow-sm" name="year" onchange="this.form.submit()">
+        {% for y in years %}
+        <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+
+  <!-- Info Cards -->
+  <div class="row mb-4 text-center">
+    <div class="col-md-6">
+      <div class="card border-primary shadow-sm animate__animated animate__fadeInLeft">
+        <div class="card-body">
+          <h5>Total Spent</h5>
+          <h3 class="text-primary">${{ total }}</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card border-success shadow-sm animate__animated animate__fadeInRight">
+        <div class="card-body">
+          <h5>Transactions</h5>
+          <h3 class="text-success">{{ total_count }}</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pie Chart Card -->
+  <div class="card shadow-sm p-4 mb-4">
+    <canvas id="pieChart" style="max-width: 400px; margin: auto;"></canvas>
+  </div>
+
+  <!-- Breakdown Table -->
+  <div class="card p-3 shadow-sm animate__animated animate__fadeInUp">
+    <h5 class="mb-3">Expense Breakdown</h5>
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Percentage</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for label, value, percent in breakdown %}
+        <tr>
+          <td><i class="fa-solid fa-tag"></i> {{ label }}</td>
+          <td>${{ value }}</td>
+          <td>{{ percent }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const ctx = document.getElementById('pieChart').getContext('2d');
+  const labels = {{ labels | safe }};
+  const values = {{ values | safe }};
+  console.log("Context Labels:", ctx);
+
+  new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: ['#36a2eb', '#ff6384', '#ffcd56', '#4bc0c0', '#9966ff', '#ff9f40'],
+        borderColor: '#fff',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            boxWidth: 20,
+            padding: 15
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.label}: $${ctx.parsed.toFixed(2)}`
+          }
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

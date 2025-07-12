@@ -1,0 +1,52 @@
+{% extends 'expenses/base.html' %}
+{% load widget_tweaks %}
+{% block content %}
+<!-- Bootstrap container for responsive padding -->
+<div class="container my-5" style="max-width: 600px;">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h2 class="card-title mb-4 text-center">Add New Expense</h2>
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label for="id_amount" class="form-label">Amount</label>
+          {{ form.amount|add_class:"form-control" }}
+        </div>
+
+        <div class="mb-3">
+          <label for="id_consumption_type" class="form-label">Consumption Type</label>
+          {{ form.consumption_type|add_class:"form-select" }}
+        </div>
+
+        <div class="mb-3" id="note-wrapper">
+          <label for="id_note" class="form-label">Note</label>
+          {{ form.note|add_class:"form-control" }}
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Add Expense</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  const consumptionSelect = document.querySelector('#id_consumption_type');
+  const noteWrapper = document.getElementById('note-wrapper');
+  const noteField = document.querySelector('#id_note');
+
+  function toggleNote() {
+    if (consumptionSelect.value === 'other') {
+      noteWrapper.style.display = 'block';
+      noteField.disabled = false;
+    } else {
+      noteWrapper.style.display = 'none';
+      noteField.disabled = true;
+      noteField.value = '';
+    }
+  }
+
+  toggleNote();
+  consumptionSelect.addEventListener('change', toggleNote);
+</script>
+{% endblock %}

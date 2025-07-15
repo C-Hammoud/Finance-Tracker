@@ -1,6 +1,5 @@
-<!-- Delete Modal -->
 <div class="modal fade animate__animated animate__fadeInDown" id="deleteModal{{ expense.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ expense.id }}" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
     <div class="modal-content">
       <form method="post" action="{% url 'delete_expense' expense.pk %}">
         {% csrf_token %}
@@ -9,13 +8,46 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <p>Are you sure you want to delete this expense?</p>
-          <ul class="list-group list-group-flush">
-            <li class="list-group-item"><strong>Date:</strong> {{ expense.date }}</li>
-            <li class="list-group-item"><strong>Type:</strong> {{ expense.get_consumption_type_display }}</li>
-            <li class="list-group-item"><strong>Amount:</strong> ${{ expense.amount }}</li>
-            <li class="list-group-item"><strong>Note:</strong> {{ expense.note|default:"-" }}</li>
-          </ul>
+          <div class="container-fluid">
+            <div class="row gy-3">
+              <div class="col-12 text-center">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <p class="fs-5 mb-0">Are you sure you want to delete this expense?</p>
+              </div>
+              <div class="col-12 col-sm-6">
+                <div class="d-flex">
+                  <strong class="me-2">Date:</strong>
+                  <span>{{ expense.date }}</span>
+                </div>
+              </div>
+              <div class="col-12 col-sm-6">
+                <div class="d-flex">
+                  <strong class="me-2">Type:</strong>
+                  <span>{{ expense.get_consumption_type_display }}</span>
+                </div>
+              </div>
+              <div class="col-12 col-sm-6">
+                <div class="d-flex">
+                  <strong class="me-2">Amount:</strong>
+                  <span>{{ expense.amount|floatformat:2 }} {{ expense.currency }}</span>
+                </div>
+              </div>
+              <div class="col-12 col-sm-6">
+                <div class="d-flex">
+                  <strong class="me-2">Amount (USD):</strong>
+                  <span>${{ expense.amount_usd|floatformat:2 }}</span>
+                </div>
+              </div>
+              {% if expense.note %}
+              <div class="col-12">
+                <div>
+                  <strong>Note:</strong>
+                </div>
+                <p class="small text-muted ms-3">{{ expense.note }}</p>
+              </div>
+              {% endif %}
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

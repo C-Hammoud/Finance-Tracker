@@ -1,21 +1,29 @@
 {% extends 'expenses/base.html' %}
 {% load widget_tweaks %}
+
 {% block content %}
-<!-- Bootstrap container for responsive padding -->
 <div class="container my-5" style="max-width: 600px;">
-  <div class="card shadow-sm">
+  <div class="card shadow-sm animate__animated animate__fadeInUp">
     <div class="card-body">
       <h2 class="card-title mb-4 text-center">Add New Expense</h2>
       <form method="post" novalidate>
         {% csrf_token %}
 
         <div class="mb-3">
-          <label for="id_amount" class="form-label">Amount</label>
-          {{ form.amount|add_class:"form-control" }}
+          <label for="id_date" class="form-label">Date</label>
+          {{ form.date|add_class:"form-control" }}
         </div>
 
         <div class="mb-3">
-          <label for="id_consumption_type" class="form-label">Consumption Type</label>
+          <label class="form-label">Amount & Currency</label>
+          <div class="input-group">
+            {{ form.amount|add_class:"form-control" }}
+            {{ form.currency|add_class:"form-select" }}
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label for="id_consumption_type" class="form-label">Type</label>
           {{ form.consumption_type|add_class:"form-select" }}
         </div>
 
@@ -31,12 +39,12 @@
 </div>
 
 <script>
-  const consumptionSelect = document.querySelector('#id_consumption_type');
+  const typeSelect = document.getElementById('id_consumption_type');
   const noteWrapper = document.getElementById('note-wrapper');
-  const noteField = document.querySelector('#id_note');
+  const noteField   = document.getElementById('id_note');
 
   function toggleNote() {
-    if (consumptionSelect.value === 'other') {
+    if (typeSelect.value === 'other') {
       noteWrapper.style.display = 'block';
       noteField.disabled = false;
     } else {
@@ -45,8 +53,19 @@
       noteField.value = '';
     }
   }
-
+  typeSelect.addEventListener('change', toggleNote);
   toggleNote();
-  consumptionSelect.addEventListener('change', toggleNote);
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const curSelect = document.getElementById('id_currency');
+    const zoneMap = {
+      'Asia/Beirut': 'LBP',
+      'Asia/Riyadh': 'SAR',
+    };
+    if (curSelect) {
+      curSelect.value = zoneMap[tz] || 'USD';
+    }
+  });
 </script>
 {% endblock %}

@@ -37,6 +37,12 @@ CSRF_TRUSTED_ORIGINS = [
     os.environ.get("CSRF_TRUSTED_ORIGINS")
 ]
 
+EXCHANGE_RATES = {
+    'USD': 1.0,
+    'LBP': 0.01,   # 1 LBP ≈ 0.01 USD
+    'SAR': 0.2667,    # 1 SAR ≈ 0.2667 USD
+}
+
 # Application definition
 
 INSTALLED_APPS = [

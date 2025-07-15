@@ -3,12 +3,30 @@ from .models import Consumption, Currency
 from .forms import ConsumptionCreateForm, ConsumptionEditForm
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import login
 from django.contrib import messages
 from django.db.models import Sum
 from datetime import datetime
 from calendar import month_name
 from decimal import Decimal
 import json
+from .forms import UserRegisterForm
+
+def register(request):
+    if request.method == "POST":
+        form = UserRegisterForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, "Account created! You’re now logged in.")
+            return redirect("dashboard")
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = UserRegisterForm()
+
+    return render(request, "registration/register.html", {"form": form})
+
 
 
 

@@ -1,125 +1,189 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="light">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>{% block title %}Finance Tracker{% endblock %}</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>{% block title %}Finance Tracker{% endblock %}</title>
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Animate.css -->
-    <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-    <!-- Google Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Animate.css -->
+  <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
-    <style>
-      :root {
-        --bs-primary: #0d6efd;
-        --bs-secondary: #6c757d;
-        --bs-success: #198754;
-        --bs-info: #0dcaf0;
-        --bs-warning: #ffc107;
-        --bs-danger: #dc3545;
-      }
-      [data-bs-theme="dark"] {
-        --bs-body-bg: #121212;
-        --bs-body-color: #e0e0e0;
-      }
-      body {
-        font-family: 'Inter', sans-serif;
-        background: var(--bs-body-bg, #f8f9fa);
-        color: var(--bs-body-color, #212529);
-        padding-bottom: 4rem;
-      }
-      .navbar-brand i {
-        margin-right: 8px;
-      }
-      .floating-btn {
-        position: fixed;
-        bottom: 1.5rem;
-        right: 1.5rem;
-        z-index: 2000;
-      }
-    </style>
-    {% block extrahead %}{% endblock %}
+  <style>
+    :root {
+      --bs-primary: #0d6efd;
+      --bs-secondary: #6c757d;
+      --bs-success: #198754;
+      --bs-info: #0dcaf0;
+      --bs-warning: #ffc107;
+      --bs-danger: #dc3545;
+      --bs-body-bg: #f8f9fa;
+      --bs-body-color: #212529;
+    }
+
+    [data-bs-theme="dark"] {
+      --bs-body-bg: #121212;
+      --bs-body-color: #e0e0e0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bs-body-bg);
+      color: var(--bs-body-color);
+      padding-bottom: 4rem;
+      /* Mobile FAB space */
+    }
+
+    .navbar-brand i {
+      margin-right: .5rem;
+    }
+
+    .floating-btn {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 2000;
+    }
+  </style>
+
+  {% block extrahead %}{% endblock %}
 </head>
+
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm fixed-top">
-      <div class="container-fluid">
-        <a class="navbar-brand d-flex align-items-center" href="{% url 'dashboard' %}">
-          <i class="fas fa-coins"></i>
-          <span>{% block navbar_brand %}Finance Tracker{% endblock %}</span>
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ms-auto">
-            <li class="nav-item">
-              <a class="nav-link{% if request.resolver_match.url_name == 'dashboard' %} active{% endif %}" href="{% url 'dashboard' %}">
-                <i class="fas fa-chart-pie me-1"></i>Dashboard
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link{% if request.resolver_match.url_name == 'add_expense' %} active{% endif %}" href="{% url 'add_expense' %}">
-                <i class="fas fa-plus-circle me-1"></i>Add
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link{% if request.resolver_match.url_name == 'monthly_list' %} active{% endif %}" href="{% url 'monthly_list' %}">
-                <i class="fas fa-list me-1"></i>Expenses
-              </a>
-            </li>
-            <li class="nav-item">
-              <button id="themeToggle" class="btn nav-link"><i class="fas fa-moon"></i></button>
-            </li>
-          </ul>
-        </div>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm fixed-top">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center" href="{% url 'dashboard' %}">
+        <i class="fas fa-coins"></i>
+        <span>{% block navbar_brand %}Finance Tracker{% endblock %}</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto align-items-center">
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.url_name == 'dashboard' %} active{% endif %}"
+              href="{% url 'dashboard' %}">
+              <i class="fas fa-chart-pie me-1"></i>Dashboard
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.url_name == 'add_expense' %} active{% endif %}"
+              href="{% url 'add_expense' %}">
+              <i class="fas fa-plus-circle me-1"></i>Add
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.url_name == 'monthly_list' %} active{% endif %}"
+              href="{% url 'monthly_list' %}">
+              <i class="fas fa-list me-1"></i>Expenses
+            </a>
+          </li>
+
+          {% if user.is_authenticated %}
+          <li class="nav-item">
+            <form method="post" action="{% url 'logout' %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="nav-link btn btn-link">
+                <i class="fas fa-sign-out-alt me-1"></i>Logout
+              </button>
+            </form>
+          </li>
+
+          {% else %}
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.url_name == 'login' %} active{% endif %}"
+              href="{% url 'login' %}">
+              <i class="fas fa-sign-in-alt me-1"></i>Login
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.url_name == 'signup' %} active{% endif %}"
+              href="{% url 'signup' %}">
+              <i class="fas fa-user-plus me-1"></i>Sign Up
+            </a>
+          </li>
+          {% endif %}
+
+          <li class="nav-item">
+            <button id="themeToggle" class="btn nav-link"><i class="fas fa-moon"></i></button>
+          </li>
+        </ul>
       </div>
-    </nav>
-
-    <main class="main-content container pt-5 mt-4 animate__animated animate__fadeInUp">
-      {% block content %}{% endblock %}
-    </main>
-
-    <a href="{% url 'add_expense' %}" class="btn btn-primary btn-lg rounded-circle shadow floating-btn d-md-none" aria-label="Add Expense">
-      <i class="fas fa-plus"></i>
-    </a>
-
-    {% if messages %}
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-      {% for message in messages %}
-        <div class="toast align-items-center text-white bg-success border-0 show" role="alert">
-          <div class="d-flex">
-            <div class="toast-body">{{ message }}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-          </div>
-        </div>
-      {% endfor %}
     </div>
-    {% endif %}
+  </nav>
 
-    {% block modals %}{% endblock %}
+  <!-- Main Content -->
+  <main class="container pt-5 mt-4 animate__animated animate__fadeInUp">
+    {% block content %}{% endblock %}
+  </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-      const htmlEl = document.documentElement;
-      const toggle = document.getElementById('themeToggle');
-      toggle.addEventListener('click', () => {
-        const newTheme = htmlEl.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
-        htmlEl.setAttribute('data-bs-theme', newTheme);
-        toggle.innerHTML = newTheme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-      });
-      document.addEventListener('DOMContentLoaded', () => {
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const select = document.querySelector('select[name="currency"]');
-        if (!select) return;
-        const zoneMap = { 'Asia/Beirut': 'LBP', 'Asia/Riyadh': 'SAR' };
-        select.value = zoneMap[tz] || 'USD';
-      });
-    </script>
-    {% block extrascript %}{% endblock %}
+  <!-- FAB for Mobile -->
+  <a href="{% url 'add_expense' %}" class="btn btn-primary btn-lg rounded-circle shadow floating-btn d-md-none"
+    aria-label="Add Expense">
+    <i class="fas fa-plus"></i>
+  </a>
+
+  <!-- Toast Messages -->
+  {% if messages %}
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    {% for message in messages %}
+    <div class="toast align-items-center text-white bg-success border-0 show" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">{{ message }}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Modals -->
+  {% block modals %}{% endblock %}
+
+  <!-- Bootstrap JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Theme Toggle & Persistence -->
+  <script>
+    const htmlEl = document.documentElement;
+    const toggle = document.getElementById('themeToggle');
+
+    // Update icon based on theme
+    function setIcon(theme) {
+      toggle.innerHTML = theme === 'dark'
+        ? '<i class="fas fa-sun"></i>'
+        : '<i class="fas fa-moon"></i>';
+    }
+
+    // On load, apply saved theme or default to light
+    document.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('theme') || 'light';
+      htmlEl.setAttribute('data-bs-theme', saved);
+      setIcon(saved);
+    });
+
+    // On click, toggle & persist
+    toggle.addEventListener('click', () => {
+      const current = htmlEl.getAttribute('data-bs-theme');
+      const next = current === 'light' ? 'dark' : 'light';
+      htmlEl.setAttribute('data-bs-theme', next);
+      localStorage.setItem('theme', next);
+      setIcon(next);
+    });
+  </script>
+
+  {% block extrascript %}{% endblock %}
 </body>
+
 </html>

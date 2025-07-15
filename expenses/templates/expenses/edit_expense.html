@@ -21,7 +21,7 @@
                 <label for="type{{ expense.id }}" class="form-label">Type</label>
                 <select name="consumption_type" id="type{{ expense.id }}" class="form-select">
                   {% for key, label in consumption_choices %}
-                  <option value="{{ key }}" {% if expense.consumption_type==key %}selected{% endif %}>{{ label }}
+                  <option value="{{ key }}" {% if expense.consumption_type == key %}selected{% endif %}>{{ label }}
                   </option>
                   {% endfor %}
                 </select>
@@ -31,7 +31,7 @@
                 <label for="currency{{ expense.id }}" class="form-label">Currency</label>
                 <select name="currency" id="currency{{ expense.id }}" class="form-select">
                   {% for code, label in currency_choices %}
-                  <option value="{{ code }}" {% if expense.currency==code %}selected{% endif %}>{{ label }}</option>
+                  <option value="{{ code }}" {% if expense.currency == code %}selected{% endif %}>{{ label }}</option>
                   {% endfor %}
                 </select>
               </div>

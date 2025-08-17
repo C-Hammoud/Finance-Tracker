@@ -6,7 +6,7 @@ register = template.Library()
 def consumption_type_display(value):
     types = {
         'market': 'Market',
-        'transport':'Transport',
+        'transport':'Transport', 
         'food': 'Food',
         'other': 'Other',
     }

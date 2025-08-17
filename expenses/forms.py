@@ -15,7 +15,7 @@ CURRENCY_CHOICES = [
 
 TYPE_CHOICES = [
     ("market", "Market"),
-    ("transport", "Transport"),
+    ("transport", "Transport"), 
     ("food", "Food"),
     ("other", "Other"),
 ]

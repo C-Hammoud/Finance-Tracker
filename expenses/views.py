@@ -153,7 +153,7 @@ def monthly_list(request):
         'selected_year': selected_year,
         'total_usd': total_usd,
         'expenses': expenses_page,
-        'consumption_choices': [(c, c.capitalize()) for c in ['market', 'transport', 'food', 'other']],
+        'consumption_choices': [(c, c.capitalize()) for c in ['market', 'transport' , 'food', 'other']],
         'currency_choices': Currency.choices,
     })
 

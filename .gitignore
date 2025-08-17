@@ -18,4 +18,6 @@ venv/
 *.env
 
 # Database
-/finance_tracker/resources/
+/resources/
+/resources/finance-tracker-firebase_key.json
+/resources/.env

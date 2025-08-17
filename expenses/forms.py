@@ -15,6 +15,7 @@ CURRENCY_CHOICES = [
 
 TYPE_CHOICES = [
     ("market", "Market"),
+    ("transport", "Transport"),
     ("food", "Food"),
     ("other", "Other"),
 ]
@@ -27,7 +28,7 @@ class UserRegisterForm(UserCreationForm):
         fields = ("username", "first_name", "last_name", "email", "password1", "password2")
 
 class ConsumptionCreateForm(forms.Form):
-    date = forms.DateField(required=True, initial=date.today, widget=forms.DateInput(attrs={'type': 'date'}))
+    date = forms.DateField(required=True, initial=date.today, widget=forms.DateInput(attrs={"type": "date"}))
     amount = forms.DecimalField(max_digits=10, decimal_places=2)
     currency = forms.ChoiceField(choices=CURRENCY_CHOICES, initial="USD")
     consumption_type = forms.ChoiceField(choices=TYPE_CHOICES, initial="market")
@@ -52,7 +53,7 @@ class ConsumptionCreateForm(forms.Form):
         return c
 
 class ConsumptionEditForm(forms.Form):
-    date = forms.DateField(required=True, widget=forms.DateInput(attrs={'type': 'date'}))
+    date = forms.DateField(required=True, widget=forms.DateInput(attrs={"type": "date"}))
     amount = forms.DecimalField(max_digits=10, decimal_places=2)
     currency = forms.ChoiceField(choices=CURRENCY_CHOICES)
     consumption_type = forms.ChoiceField(choices=TYPE_CHOICES)

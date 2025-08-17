@@ -11,6 +11,7 @@ class Currency(models.TextChoices):
 class DjangoConsumption(models.Model):
     TYPE_CHOICES = [
         ('market', 'Market'),
+        ('transport', 'Transport'),
         ('food', 'Food'),
         ('other', 'Other'),
     ]

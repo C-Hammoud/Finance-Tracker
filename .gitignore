@@ -16,3 +16,6 @@ venv/
 
 # Docker
 *.env
+
+# Database
+/finance_tracker/resources/

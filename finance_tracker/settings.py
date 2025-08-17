@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import firebase_admin
+from firebase_admin import credentials, storage
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,14 +27,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-u^6gl(uq#257nm*r5w3qq-wq=j5muem$pnbp02@*gyg2tl$h5!"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", os.environ.get("DJANGO_ALLOWED_HOSTS")]
 
-CSRF_TRUSTED_ORIGINS = [
-    os.environ.get("CSRF_TRUSTED_ORIGINS")
-]
+# CSRF_TRUSTED_ORIGINS = [
+#     os.environ.get("CSRF_TRUSTED_ORIGINS")
+# ]
+
+CSRF_TRUSTED_ORIGINS = []
+if os.environ.get("CSRF_TRUSTED_ORIGINS"):
+    CSRF_TRUSTED_ORIGINS = os.environ.get("CSRF_TRUSTED_ORIGINS").split(",")
+
 
 EXCHANGE_RATES = {
     "USD": 1.0,
@@ -48,7 +56,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "expenses",
+    "expenses.apps.ExpensesConfig",
     "widget_tweaks",
 ]
 
@@ -134,4 +142,40 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# redirect after successful login (use URL name or absolute path)
+LOGIN_REDIRECT_URL = "dashboard"   # or "/dashboard/"
+LOGIN_URL = "login"
 LOGOUT_REDIRECT_URL = "login"
+
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "finance_tracker.firebase_auth_backend.FirebaseAuthBackend",
+]
+
+
+# FIREBASE_KEY_PATH = os.path.join(BASE_DIR, "resources", "finance-tracker-firebase_key.json")
+# FIREBASE_STORAGE_BUCKET = os.environ.get("FIREBASE_STORAGE_BUCKET", "your-default-bucket.appspot.com")
+# # Initialize Firebase Admin SDK
+# if not firebase_admin._apps:
+#     cred = credentials.Certificate(FIREBASE_KEY_PATH)
+#     firebase_admin.initialize_app(cred, {
+#         'storageBucket': FIREBASE_STORAGE_BUCKET
+#     })
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
+}

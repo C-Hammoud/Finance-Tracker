@@ -1,10 +1,10 @@
-<div class="modal fade animate__animated animate__fadeInDown" id="deleteModal{{ expense.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ expense.id }}" aria-hidden="true">
+<div class="modal fade animate__animated animate__fadeInDown" id="deleteModal{{ expense.pk }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ expense.pk }}" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
     <div class="modal-content">
       <form method="post" action="{% url 'delete_expense' expense.pk %}">
         {% csrf_token %}
         <div class="modal-header bg-danger text-white">
-          <h5 class="modal-title" id="deleteModalLabel{{ expense.id }}">Confirm Delete</h5>
+          <h5 class="modal-title" id="deleteModalLabel{{ expense.pk }}">Confirm Delete</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -23,7 +23,7 @@
               <div class="col-12 col-sm-6">
                 <div class="d-flex">
                   <strong class="me-2">Type:</strong>
-                  <span>{{ expense.get_consumption_type_display }}</span>
+                  <span>{{ expense.consumption_type }}</span>
                 </div>
               </div>
               <div class="col-12 col-sm-6">

@@ -1,20 +1,36 @@
 from django.shortcuts import render, redirect
-from .firestore_models import ConsumptionFS as Consumption
-from .forms import ConsumptionCreateForm, ConsumptionEditForm, UserRegisterForm
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import authenticate, login, get_user_model
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
 from firebase_admin import auth as fb_auth, firestore
 from firebase_client import get_firestore_client, get_storage_bucket
-from django.core.paginator import Paginator
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth import authenticate, login
-from django.contrib import messages
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from django.contrib.auth import get_user_model
+
+from .firestore_models import ConsumptionFS as Consumption
+from .forms import ConsumptionCreateForm, ConsumptionEditForm, UserRegisterForm
+from .models import Currency
+
 from datetime import datetime
 from calendar import month_name
 from decimal import Decimal
 import json
-from .models import Currency
+import io
+
+# PDF + chart generation
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
+from reportlab.lib import colors
+
+import matplotlib
+matplotlib.use("Agg")   # for headless servers
+import matplotlib.pyplot as plt
+
+
 
 def register(request):
     if request.method == "POST":
@@ -248,3 +264,152 @@ def firebase_token_login(request):
 
     login(request, user)
     return JsonResponse({"ok": True})
+
+@login_required
+def download_dashboard_pdf(request):
+    """
+    Generate a professional PDF report for the dashboard (month + year).
+    Includes summary, styled breakdown table, pie chart, and footer.
+    """
+
+    selected_month = int(request.GET.get("month", datetime.now().month))
+    selected_year = int(request.GET.get("year", datetime.now().year))
+
+    # --- Fetch Data ---
+    try:
+        all_items = Consumption.list(limit=2000)
+    except Exception as e:
+        print(f"Error fetching Firestore data: {e}")
+        all_items = []
+
+    monthly = [
+        i for i in all_items
+        if i.record_status == "active"
+        and i.created_by == str(request.user.id)
+        and getattr(i, "date", None) is not None
+        and i.date.year == selected_year
+        and i.date.month == selected_month
+    ]
+
+    total_usd = sum([float(i.amount_usd) for i in monthly]) if monthly else 0.0
+    total_count = len(monthly)
+
+    totals = {}
+    for i in monthly:
+        key = (i.consumption_type or "other").capitalize()
+        totals[key] = totals.get(key, 0.0) + float(i.amount_usd)
+
+    # --- Metadata ---
+    extracted_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    extractor_name = request.user.get_full_name() or request.user.username
+
+    # --- Pie Chart ---
+    pie_image = None
+    if total_usd > 0 and totals:
+        fig, ax = plt.subplots(figsize=(3.2, 3.2), dpi=100)
+        ax.pie(
+            list(totals.values()),
+            labels=list(totals.keys()),
+            autopct="%1.1f%%",
+            startangle=90,
+            textprops={"fontsize": 8}
+        )
+        ax.axis("equal")
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
+        plt.close(fig)
+        buf.seek(0)
+        pie_image = ImageReader(buf)
+
+    # --- PDF Setup ---
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    margin_x, margin_y = 25 * mm, 20 * mm
+    y = height - margin_y
+
+    # --- Header (colored band) ---
+    header_h = 22 * mm
+    p.setFillColorRGB(0.12, 0.44, 0.71)  # dark blue
+    p.rect(0, height - header_h, width, header_h, fill=1, stroke=0)
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(margin_x, height - header_h + 8, "Finance Tracker")
+    p.setFont("Helvetica", 10)
+    p.drawString(margin_x, height - header_h + 2, "Dashboard Report")
+
+    # --- Subtitle ---
+    y = height - header_h - 15
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 13)
+    p.drawString(margin_x, y, f"{month_name[selected_month]} {selected_year}")
+    p.setFont("Helvetica", 10)
+    p.drawRightString(width - margin_x, y, f"Records: {total_count}")
+    y -= 20
+
+    # --- Summary box ---
+    p.setFillColor(colors.whitesmoke)
+    p.roundRect(margin_x, y - 30, width - 2 * margin_x, 30, 6, fill=1, stroke=1)
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(margin_x + 10, y - 12, f"Total Expenses: {total_usd:,.2f} USD")
+    p.setFont("Helvetica", 10)
+    p.drawString(margin_x + 10, y - 24, f"Number of Records: {total_count}")
+    y -= 50
+
+    # --- Pie chart (centered) ---
+    if pie_image:
+        chart_w, chart_h = 80 * mm, 80 * mm
+        chart_x = (width - chart_w) / 2
+        chart_y = y - chart_h
+        p.drawImage(pie_image, chart_x, chart_y, chart_w, chart_h, mask="auto")
+        y = chart_y - 30
+
+    # --- Breakdown Table ---
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(margin_x, y, "Breakdown by Type")
+    y -= 18
+
+    if total_usd > 0:
+        # Table Header
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(margin_x, y, "Type")
+        p.drawRightString(width - margin_x - 100, y, "Amount (USD)")
+        p.drawRightString(width - margin_x, y, "%")
+        y -= 12
+        p.setStrokeColor(colors.grey)
+        p.line(margin_x, y, width - margin_x, y)
+        y -= 15
+
+        # Table Rows
+        p.setFont("Helvetica", 10)
+        for label, amt in totals.items():
+            percent = (amt / total_usd) * 100
+            p.drawString(margin_x, y, label)
+            p.drawRightString(width - margin_x - 100, y, f"{amt:,.2f}")
+            p.drawRightString(width - margin_x, y, f"{percent:.1f}%")
+            y -= 15
+            if y < margin_y + 50:  # New page if running out of space
+                p.showPage()
+                y = height - margin_y
+    else:
+        p.setFont("Helvetica", 10)
+        p.drawString(margin_x, y, "No data available for this period.")
+        y -= 20
+
+    # --- Footer ---
+    p.setStrokeColor(colors.lightgrey)
+    p.setLineWidth(0.5)
+    p.line(margin_x, margin_y + 10, width - margin_x, margin_y + 10)
+    p.setFont("Helvetica", 8)
+    p.drawString(margin_x, margin_y, f"Generated by: {extractor_name}")
+    p.drawRightString(width - margin_x, margin_y, f"Extracted: {extracted_at}")
+
+    # Save
+    p.save()
+    buffer.seek(0)
+
+    filename = f"Finance_Dashboard_{month_name[selected_month]}_{selected_year}.pdf"
+    response = HttpResponse(buffer, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename=\"{filename}\"'
+    return response

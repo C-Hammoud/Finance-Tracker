@@ -9,4 +9,5 @@ urlpatterns = [
     path("edit/<uuid:pk>/", views.edit_expense, name="edit_expense"),
     path("delete/<uuid:pk>/", views.delete_expense, name="delete_expense"),
     path("firebase-token-login/", views.firebase_token_login, name="firebase_token_login"),
+    path("dashboard/pdf/", views.download_dashboard_pdf, name="dashboard_pdf"),
 ]

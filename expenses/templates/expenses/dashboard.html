@@ -16,6 +16,9 @@
     <a href="{% url 'add_expense' %}" class="btn btn-primary shadow-sm">
       <i class="fas fa-plus me-1"></i> Add Expense
     </a>
+    <a class="btn btn-primary" href="{% url 'dashboard_pdf' %}?month={{ selected_month }}&year={{ selected_year }}">
+        Download PDF
+    </a>
   </div>
 
   <form class="row g-2 justify-content-start align-items-center mb-4" method="get">

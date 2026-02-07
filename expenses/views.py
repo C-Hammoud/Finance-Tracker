@@ -315,8 +315,15 @@ def edit_expense(request, pk):
             messages.success(request, "Expense updated successfully.")
             month = request.POST.get("month")
             year = request.POST.get("year")
+            page = request.POST.get("page")
+            page_size = request.POST.get("page_size")
             if month and year:
-                return redirect(f"/list/?month={month}&year={year}")
+                query = f"month={month}&year={year}"
+                if page_size:
+                    query += f"&page_size={page_size}"
+                if page:
+                    query += f"&page={page}"
+                return redirect(f"/list/?{query}")
             return redirect("monthly_list")
         else:
             messages.error(request, "Could not save changes: " + str(form.errors))

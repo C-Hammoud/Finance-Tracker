@@ -39,6 +39,9 @@
         <button class="btn btn-outline-primary btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#monthlyBreakdownModal">
           <i class="fa fa-chart-pie me-1"></i> Monthly Breakdown
         </button>
+        <button class="btn btn-outline-success btn-sm shadow-sm" id="calcSelectedBtn" type="button">
+          <i class="fa fa-calculator me-1"></i> Calc Selected
+        </button>
       </div>
     </div>
   </div>
@@ -47,7 +50,10 @@
     {% for exp in expenses %}
     <div class="glass-card p-3 mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <span class="fw-semibold">{{ exp.date }}</span>
+        <div class="d-flex align-items-center gap-2">
+          <input class="form-check-input expense-select" type="checkbox" data-amount="{{ exp.amount_usd|floatformat:2 }}">
+          <span class="fw-semibold">{{ exp.date }}</span>
+        </div>
         <span class="type-tag">{{ exp.consumption_type }}</span>
       </div>
       <div class="d-flex justify-content-between align-items-center">
@@ -82,6 +88,9 @@
         <table class="table expense-table mb-0">
           <thead>
           <tr>
+            <th style="width: 36px;">
+              <input class="form-check-input" type="checkbox" id="selectAllExpenses">
+            </th>
             <th>Date</th>
             <th>Type</th>
             <th>Country</th>
@@ -95,6 +104,9 @@
           <tbody>
           {% for exp in expenses %}
           <tr>
+            <td>
+              <input class="form-check-input expense-select" type="checkbox" data-amount="{{ exp.amount_usd|floatformat:2 }}">
+            </td>
             <td>{{ exp.date }}</td>
             <td><span class="type-tag">{{ exp.consumption_type }}</span></td>
             <td><span class="country-pill">{{ exp.country|default:"-" }}</span></td>
@@ -271,6 +283,34 @@
         link.download = `monthly_breakdown_${monthName}_${yearText}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
+      });
+    });
+  }
+
+  function computeSelectedTotal() {
+    const checks = document.querySelectorAll('.expense-select:checked');
+    let sum = 0;
+    checks.forEach((el) => {
+      const amt = parseFloat(el.dataset.amount || '0');
+      if (!Number.isNaN(amt)) sum += amt;
+    });
+    return sum;
+  }
+
+  const calcBtn = document.getElementById('calcSelectedBtn');
+  if (calcBtn) {
+    calcBtn.addEventListener('click', () => {
+      const total = computeSelectedTotal();
+      calcBtn.innerHTML = `<i class="fa fa-calculator me-1"></i> $${total.toFixed(2)}`;
+    });
+  }
+
+  const selectAll = document.getElementById('selectAllExpenses');
+  if (selectAll) {
+    selectAll.addEventListener('change', () => {
+      const checks = document.querySelectorAll('.expense-select');
+      checks.forEach((el) => {
+        el.checked = selectAll.checked;
       });
     });
   }

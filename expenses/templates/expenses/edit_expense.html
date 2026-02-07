@@ -17,12 +17,27 @@
                   value="{{ expense.date|date:'Y-m-d' }}" required>
               </div>
 
-              <div class="col-12 col-md-4">
+              <div class="col-12 col-md-8">
                 <label for="type{{ expense.pk }}" class="form-label">Type</label>
                 <select name="consumption_type" id="type{{ expense.pk }}" class="form-select">
                   {% for key, label in consumption_choices %}
-                  <option value="{{ key }}" {% if expense.consumption_type == key %}selected{% endif %}>{{ label }}</option>
+                  <option value="{{ key }}" {% if expense.consumption_type == key %}selected{% endif %}>{{ label }}
+                  </option>
                   {% endfor %}
+                </select>
+              </div>
+
+               <div class="col-12 col-md-4">
+                <label for="country{{ expense.pk }}" class="form-label">Country</label>
+                <select name="country" id="country{{ expense.pk }}" class="form-select">
+                  {% if country_choices %}
+                    {% for code, name in country_choices %}
+                      <option value="{{ code }}" {% if expense.country == code %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                  {% else %}
+                    <option value="LB" {% if expense.country == "LB" %}selected{% endif %}>Lebanon</option>
+                    <option value="SA" {% if expense.country == "SA" %}selected{% endif %}>Saudi Arabia</option>
+                  {% endif %}
                 </select>
               </div>
 

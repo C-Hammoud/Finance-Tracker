@@ -21,3 +21,5 @@ venv/
 /resources/
 /resources/finance-tracker-firebase_key.json
 /resources/.env
+
+.cursor/

@@ -2,11 +2,36 @@ from django.db import models
 from django.conf import settings
 from decimal import Decimal
 from django.utils import timezone
+from zoneinfo import ZoneInfo
 
 class Currency(models.TextChoices):
     USD = "USD", "US Dollar"
     LBP = "LBP", "Lebanese Lira"
     SAR = "SAR", "Saudi Riyal"
+    
+class COUNTRIES(models.TextChoices):
+    LB = "LB", "Lebanon"
+    SA = "SA", "Saudi Arabia"
+
+TZ_TO_COUNTRY = {
+    "Asia/Beirut": COUNTRIES.LB,
+    "Asia/Riyadh": COUNTRIES.SA,
+}
+
+COUNTRY_TO_TZ = {
+    COUNTRIES.LB: "Asia/Beirut",
+    COUNTRIES.SA: "Asia/Riyadh",
+}
+
+def timezone_for_country(country_code: str):
+    if not country_code:
+        return ZoneInfo(settings.TIME_ZONE or "UTC")
+    try:
+        tzname = COUNTRY_TO_TZ.get(country_code.upper(), settings.TIME_ZONE or "UTC")
+        return ZoneInfo(tzname)
+    except Exception:
+        return ZoneInfo(settings.TIME_ZONE or "UTC")
+
 
 class DjangoConsumption(models.Model):
     TYPE_CHOICES = [
@@ -22,6 +47,14 @@ class DjangoConsumption(models.Model):
     amount_usd = models.DecimalField(max_digits=12, decimal_places=2, editable=False, default=Decimal('0.00'))
     consumption_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='market')
     note = models.TextField(blank=True, null=True)
+    
+    country = models.CharField(
+    max_length=2,
+    blank=True,
+    null=True,
+    help_text="ISO 3166-1 alpha-2 country code (used to detect timezone)"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_consumptions')
     modified_at = models.DateTimeField(auto_now=True)
@@ -42,6 +75,7 @@ class DjangoConsumption(models.Model):
             "amount_usd": str(self.amount_usd),
             "consumption_type": self.consumption_type,
             "note": self.note or "",
+            "country": (self.country or ""),
             "record_status": self.record_status,
             "created_by": str(self.created_by_id) if self.created_by_id else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,

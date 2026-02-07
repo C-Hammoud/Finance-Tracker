@@ -10,14 +10,15 @@ from firebase_admin import auth as fb_auth, firestore
 from firebase_client import get_firestore_client, get_storage_bucket
 
 from .firestore_models import ConsumptionFS as Consumption
-from .forms import ConsumptionCreateForm, ConsumptionEditForm, UserRegisterForm
-from .models import Currency
+from .forms import ExpenseDateForm, ExpenseLineItemForm, ConsumptionEditForm, UserRegisterForm
+from .models import TZ_TO_COUNTRY, Currency, COUNTRIES
 
-from datetime import datetime
+from datetime import datetime, date
 from calendar import month_name
 from decimal import Decimal
 import json
 import io
+import uuid
 
 # PDF + chart generation
 from reportlab.lib.pagesizes import A4
@@ -29,7 +30,8 @@ from reportlab.lib import colors
 import matplotlib
 matplotlib.use("Agg")   # for headless servers
 import matplotlib.pyplot as plt
-
+from django.conf import settings
+from django.forms import formset_factory
 
 
 def register(request):
@@ -64,20 +66,88 @@ def upload_to_firebase(file_obj, filename):
     blob.make_public()
     return blob.public_url
 
+# @login_required
+# def add_expense(request):
+#     if request.method == "POST":
+#         form = ConsumptionCreateForm(request.POST)
+#         if form.is_valid():
+#             expense = form.save(created_by=request.user)
+#             messages.success(request, "Expense added successfully.")
+#             return redirect("dashboard")
+#         else:
+#             messages.error(request, "Could not add expense: " + str(form.errors))
+#     else:
+#         form = ConsumptionCreateForm()
+#     return render(request, "expenses/add_expense.html", {"form": form})
 @login_required
 def add_expense(request):
-    if request.method == "POST":
-        form = ConsumptionCreateForm(request.POST)
-        if form.is_valid():
-            expense = form.save(created_by=request.user)
-            messages.success(request, "Expense added successfully.")
-            return redirect("dashboard")
-        else:
-            messages.error(request, "Could not add expense: " + str(form.errors))
-    else:
-        form = ConsumptionCreateForm()
-    return render(request, "expenses/add_expense.html", {"form": form})
+    
+    print(f"Request GET params: {request.GET.dict()}") 
+    country_choices = sorted(list(COUNTRIES.choices), key=lambda x: x[1])
 
+    default_country = ""
+    client_tz = request.GET.get("tz")
+    server_tz = getattr(settings, "TIME_ZONE", "") or ""
+
+    if client_tz in TZ_TO_COUNTRY:
+        default_country = TZ_TO_COUNTRY[client_tz]
+        print(f"Detected timezone from client: {client_tz}, setting default country to {default_country}")
+    elif server_tz in TZ_TO_COUNTRY:
+        default_country = TZ_TO_COUNTRY[server_tz]
+        print(f"Detected server timezone: {server_tz}, setting default country to {default_country}")   
+    else:
+        default_country = COUNTRIES.LB  # fallback
+    
+    LineItemFormSet = formset_factory(ExpenseLineItemForm, extra=1)
+
+    if request.method == "POST":
+        date_form = ExpenseDateForm(request.POST)
+        items_formset = LineItemFormSet(request.POST, prefix="items")
+        if date_form.is_valid() and items_formset.is_valid():
+            created_count = 0
+            expense_date = date_form.cleaned_data["date"]
+            selected_country = request.POST.get("country") or default_country
+            for item_form in items_formset:
+                if not item_form.cleaned_data:
+                    continue
+                amount = item_form.cleaned_data.get("amount")
+                if amount is None:
+                    continue
+                c = Consumption(
+                    pk=str(uuid.uuid4()),
+                    date=expense_date,
+                    amount=Decimal(str(amount)),
+                    currency=item_form.cleaned_data.get("currency"),
+                    consumption_type=item_form.cleaned_data.get("consumption_type"),
+                    note=item_form.cleaned_data.get("note", ""),
+                    country=selected_country,
+                    created_by=str(request.user.id) if request.user else None,
+                    created_at=datetime.utcnow(),
+                    modified_by=None,
+                    modified_at=None,
+                    record_status="active"
+                )
+                c.save()  # Triggers compute_amount_usd and saves to Firestore
+                created_count += 1
+            if created_count == 0:
+                messages.error(request, "Please add at least one expense.")
+            else:
+                messages.success(request, f"{created_count} expense(s) added successfully.")
+                return redirect("dashboard")
+        else:
+            messages.error(request, f"Could not add expense: {date_form.errors} {items_formset.errors}")
+    else:
+        date_form = ExpenseDateForm(initial={"date": date.today()})
+        items_formset = LineItemFormSet(prefix="items")
+
+    return render(request, "expenses/add_expense.html", {
+        "date_form": date_form,
+        "items": items_formset,
+        "country_choices": country_choices,
+        "default_country": default_country,
+    })
+    
+    
 @login_required
 def dashboard(request):
     months = [(i, month_name[i]) for i in range(1, 13)]
@@ -87,12 +157,33 @@ def dashboard(request):
     years = [(y) for y in range(start_year, current_year + 2)]
     selected_month = int(request.GET.get("month", datetime.now().month))
     selected_year = int(request.GET.get("year", datetime.now().year))
+    selected_month_name = month_name[selected_month]
+    show_monthly_only = request.GET.get("show_monthly") == "1"
 
     try:
         all_items = Consumption.list(limit=2000)
     except Exception as e:
         print(f"Error fetching Firestore data: {e}")
         all_items = []
+
+    yearly_items = [
+        i for i in all_items
+        if i.record_status == "active"
+        and i.created_by == str(request.user.id)
+        and getattr(i, "date", None) is not None
+        and i.date.year == selected_year
+    ]
+    month_totals = {m: 0.0 for m, _ in months}
+    month_counts = {m: 0 for m, _ in months}
+    for item in yearly_items:
+        month_num = item.date.month
+        month_totals[month_num] += float(item.amount_usd)
+        month_counts[month_num] += 1
+    yearly_overview = [
+        (m, name, month_totals[m], month_counts[m]) for m, name in months
+    ]
+    yearly_labels = [name for _, name in months]
+    yearly_values = [month_totals[m] for m, _ in months]
 
     monthly = [
         i for i in all_items
@@ -123,6 +214,11 @@ def dashboard(request):
         "years": years,
         "selected_month": selected_month,
         "selected_year": selected_year,
+        "selected_month_name": selected_month_name,
+        "show_monthly_only": show_monthly_only,
+        "yearly_overview": yearly_overview,
+        "yearly_labels": json.dumps(yearly_labels),
+        "yearly_values": json.dumps(yearly_values),
         "total": total_usd,
         "total_count": total_count,
         "labels": json.dumps(labels),
@@ -139,6 +235,8 @@ def monthly_list(request):
 
     selected_month = int(request.GET.get("month", datetime.now().month))
     selected_year = int(request.GET.get("year", datetime.now().year))
+    selected_month_name = month_name[selected_month]
+    page_size_param = (request.GET.get("page_size") or "10").lower()
 
     try:
         all_items = Consumption.list(limit=2000)
@@ -158,7 +256,28 @@ def monthly_list(request):
 
     total_usd = sum([float(i.amount_usd) for i in qs]) if qs else Decimal('0.00')
 
-    paginator = Paginator(qs, 10)
+    totals = {}
+    for i in qs:
+        key = (i.consumption_type or "other").capitalize()
+        totals[key] = totals.get(key, 0.0) + float(i.amount_usd)
+    labels = list(totals.keys())
+    values = [totals[k] for k in labels]
+    breakdown = []
+    for label, value in zip(labels, values):
+        percent = round((value / float(total_usd)) * 100, 2) if total_usd else 0
+        breakdown.append((label, value, percent))
+
+    if page_size_param == "all":
+        per_page = max(len(qs), 1)
+    else:
+        try:
+            per_page = int(page_size_param)
+        except ValueError:
+            per_page = 10
+        if per_page not in (10, 50):
+            per_page = 10
+
+    paginator = Paginator(qs, per_page)
     page_number = request.GET.get("page")
     expenses_page = paginator.get_page(page_number)
 
@@ -167,8 +286,13 @@ def monthly_list(request):
         'years': years,
         'selected_month': selected_month,
         'selected_year': selected_year,
+        'selected_month_name': selected_month_name,
         'total_usd': total_usd,
         'expenses': expenses_page,
+        'page_size': page_size_param,
+        'labels': json.dumps(labels),
+        'values': json.dumps(values),
+        'breakdown': breakdown,
         'consumption_choices': [(c, c.capitalize()) for c in ['market', 'transport' , 'food', 'other']],
         'currency_choices': Currency.choices,
     })
@@ -274,6 +398,12 @@ def download_dashboard_pdf(request):
 
     selected_month = int(request.GET.get("month", datetime.now().month))
     selected_year = int(request.GET.get("year", datetime.now().year))
+    scope = request.GET.get("scope", "month").lower()
+    months_param = request.GET.getlist("months")
+    selected_months = sorted({
+        int(m) for m in months_param
+        if str(m).isdigit() and 1 <= int(m) <= 12
+    })
 
     # --- Fetch Data ---
     try:
@@ -282,20 +412,38 @@ def download_dashboard_pdf(request):
         print(f"Error fetching Firestore data: {e}")
         all_items = []
 
-    monthly = [
-        i for i in all_items
-        if i.record_status == "active"
-        and i.created_by == str(request.user.id)
-        and getattr(i, "date", None) is not None
-        and i.date.year == selected_year
-        and i.date.month == selected_month
-    ]
+    if scope == "year":
+        period_items = [
+            i for i in all_items
+            if i.record_status == "active"
+            and i.created_by == str(request.user.id)
+            and getattr(i, "date", None) is not None
+            and i.date.year == selected_year
+        ]
+    elif scope == "months" and selected_months:
+        period_items = [
+            i for i in all_items
+            if i.record_status == "active"
+            and i.created_by == str(request.user.id)
+            and getattr(i, "date", None) is not None
+            and i.date.year == selected_year
+            and i.date.month in selected_months
+        ]
+    else:
+        period_items = [
+            i for i in all_items
+            if i.record_status == "active"
+            and i.created_by == str(request.user.id)
+            and getattr(i, "date", None) is not None
+            and i.date.year == selected_year
+            and i.date.month == selected_month
+        ]
 
-    total_usd = sum([float(i.amount_usd) for i in monthly]) if monthly else 0.0
-    total_count = len(monthly)
+    total_usd = sum([float(i.amount_usd) for i in period_items]) if period_items else 0.0
+    total_count = len(period_items)
 
     totals = {}
-    for i in monthly:
+    for i in period_items:
         key = (i.consumption_type or "other").capitalize()
         totals[key] = totals.get(key, 0.0) + float(i.amount_usd)
 
@@ -303,23 +451,131 @@ def download_dashboard_pdf(request):
     extracted_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     extractor_name = request.user.get_full_name() or request.user.username
 
-    # --- Pie Chart ---
+    # --- Pie Chart removed (stacked bars used instead) ---
     pie_image = None
-    if total_usd > 0 and totals:
-        fig, ax = plt.subplots(figsize=(3.2, 3.2), dpi=100)
-        ax.pie(
-            list(totals.values()),
-            labels=list(totals.keys()),
-            autopct="%1.1f%%",
-            startangle=90,
-            textprops={"fontsize": 8}
-        )
-        ax.axis("equal")
-        buf = io.BytesIO()
-        plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
-        plt.close(fig)
-        buf.seek(0)
-        pie_image = ImageReader(buf)
+
+    # --- Monthly Charts ---
+    monthly_charts = []
+    if scope == "month":
+        month_items = period_items
+        month_totals = {}
+        for i in month_items:
+            key = (i.consumption_type or "other").capitalize()
+            month_totals[key] = month_totals.get(key, 0.0) + float(i.amount_usd)
+        if month_totals:
+            labels = list(month_totals.keys())
+            values = [month_totals[k] for k in labels]
+            fig, ax = plt.subplots(figsize=(5.0, 3.6), dpi=100)
+            wedges, _ = ax.pie(
+                values,
+                startangle=90,
+                wedgeprops={"width": 0.4}
+            )
+            ax.legend(
+                wedges,
+                labels,
+                title="Category",
+                loc="center left",
+                bbox_to_anchor=(1.0, 0.5),
+                fontsize=8,
+                title_fontsize=8
+            )
+            ax.set_title(f"{month_name[selected_month]} {selected_year}")
+            ax.set_aspect("equal", adjustable="box")
+            buf = io.BytesIO()
+            plt.tight_layout()
+            plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
+            plt.close(fig)
+            buf.seek(0)
+            monthly_charts.append(ImageReader(buf))
+    elif scope in ("months", "year"):
+        months_for_donuts = selected_months if (scope == "months" and selected_months) else list(range(1, 13))
+        for m in months_for_donuts:
+            month_items = [
+                i for i in period_items
+                if getattr(i, "date", None) is not None and i.date.month == m
+            ]
+            month_totals = {}
+            for i in month_items:
+                key = (i.consumption_type or "other").capitalize()
+                month_totals[key] = month_totals.get(key, 0.0) + float(i.amount_usd)
+            if not month_totals:
+                continue
+            labels = list(month_totals.keys())
+            values = [month_totals[k] for k in labels]
+            fig, ax = plt.subplots(figsize=(5.0, 3.6), dpi=100)
+            wedges, _ = ax.pie(
+                values,
+                startangle=90,
+                wedgeprops={"width": 0.4}
+            )
+            ax.legend(
+                wedges,
+                labels,
+                title="Category",
+                loc="center left",
+                bbox_to_anchor=(1.0, 0.5),
+                fontsize=8,
+                title_fontsize=8
+            )
+            ax.set_title(f"{month_name[m]} {selected_year}")
+            ax.set_aspect("equal", adjustable="box")
+            buf = io.BytesIO()
+            plt.tight_layout()
+            plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
+            plt.close(fig)
+            buf.seek(0)
+            monthly_charts.append(ImageReader(buf))
+
+    # --- Yearly Chart (stacked bar) ---
+    yearly_image = None
+    if scope in ("year", "months"):
+        if scope == "months" and selected_months:
+            months_for_chart = selected_months
+        else:
+            months_for_chart = list(range(1, 13))
+        month_totals = {m: 0.0 for m in months_for_chart}
+        for item in period_items:
+            month_num = item.date.month
+            if month_num in month_totals:
+                month_totals[month_num] += float(item.amount_usd)
+        month_labels = [month_name[m][:3] for m in months_for_chart]
+        month_values = [month_totals[m] for m in months_for_chart]
+        category_order = []
+        category_totals = {}
+        for item in period_items:
+            month_num = item.date.month
+            if month_num not in month_totals:
+                continue
+            key = (item.consumption_type or "other").capitalize()
+            if key not in category_totals:
+                category_totals[key] = {m: 0.0 for m in months_for_chart}
+                category_order.append(key)
+            category_totals[key][month_num] += float(item.amount_usd)
+        if any(month_values):
+            fig, ax = plt.subplots(figsize=(7.5, 3.2), dpi=100)
+            bottoms = [0.0 for _ in months_for_chart]
+            colors_list = ["#36a2eb", "#ff6384", "#ffcd56", "#4bc0c0", "#9966ff", "#ff9f40"]
+            for idx, key in enumerate(category_order):
+                values = [category_totals[key][m] for m in months_for_chart]
+                ax.bar(
+                    month_labels,
+                    values,
+                    bottom=bottoms,
+                    color=colors_list[idx % len(colors_list)],
+                    label=key
+                )
+                bottoms = [b + v for b, v in zip(bottoms, values)]
+            ax.set_ylabel("USD")
+            ax.set_title("Monthly Totals (Stacked)")
+            ax.grid(axis="y", linestyle="--", alpha=0.3)
+            ax.legend(loc="upper right", fontsize=7, title_fontsize=7)
+            buf = io.BytesIO()
+            plt.tight_layout()
+            plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
+            plt.close(fig)
+            buf.seek(0)
+            yearly_image = ImageReader(buf)
 
     # --- PDF Setup ---
     buffer = io.BytesIO()
@@ -327,6 +583,14 @@ def download_dashboard_pdf(request):
     width, height = A4
     margin_x, margin_y = 25 * mm, 20 * mm
     y = height - margin_y
+
+    def draw_footer():
+        p.setStrokeColor(colors.lightgrey)
+        p.setLineWidth(0.5)
+        p.line(margin_x, margin_y + 10, width - margin_x, margin_y + 10)
+        p.setFont("Helvetica", 8)
+        p.drawString(margin_x, margin_y, f"Generated by: {extractor_name}")
+        p.drawRightString(width - margin_x, margin_y, f"Extracted: {extracted_at}")
 
     # --- Header (colored band) ---
     header_h = 22 * mm
@@ -336,15 +600,26 @@ def download_dashboard_pdf(request):
     p.setFont("Helvetica-Bold", 18)
     p.drawString(margin_x, height - header_h + 8, "Finance Tracker")
     p.setFont("Helvetica", 10)
-    p.drawString(margin_x, height - header_h + 2, "Dashboard Report")
-
+    if scope == "year":
+        title = "Yearly Expense Report"
+    elif scope == "months" and selected_months:
+        title = "Selected Months Report"
+    else:
+        title = "Monthly Expense Report"
+    p.drawRightString(width - margin_x, height - header_h + 12, title)
+    p.drawRightString(width - margin_x, height - header_h + 2, extracted_at)    
     # --- Subtitle ---
     y = height - header_h - 15
     p.setFillColor(colors.black)
     p.setFont("Helvetica-Bold", 13)
-    p.drawString(margin_x, y, f"{month_name[selected_month]} {selected_year}")
-    p.setFont("Helvetica", 10)
-    p.drawRightString(width - margin_x, y, f"Records: {total_count}")
+    if scope == "year":
+        subtitle = f"{selected_year}"
+    elif scope == "months" and selected_months:
+        month_labels = ", ".join([month_name[m][:3] for m in selected_months])
+        subtitle = f"{month_labels} {selected_year}"
+    else:
+        subtitle = f"{month_name[selected_month]} {selected_year}"
+    p.drawString(margin_x, y, subtitle)
     y -= 20
 
     # --- Summary box ---
@@ -357,13 +632,36 @@ def download_dashboard_pdf(request):
     p.drawString(margin_x + 10, y - 24, f"Number of Records: {total_count}")
     y -= 50
 
-    # --- Pie chart (centered) ---
-    if pie_image:
-        chart_w, chart_h = 80 * mm, 80 * mm
+    if yearly_image:
+        chart_w, chart_h = 170 * mm, 70 * mm
         chart_x = (width - chart_w) / 2
         chart_y = y - chart_h
-        p.drawImage(pie_image, chart_x, chart_y, chart_w, chart_h, mask="auto")
-        y = chart_y - 30
+        p.drawImage(yearly_image, chart_x, chart_y, chart_w, chart_h, mask="auto")
+        y = chart_y - 25
+
+    # --- Selected Months Charts ---
+    if monthly_charts:
+        gap = 8 * mm
+        chart_w = (width - 2 * margin_x - gap) / 2
+        chart_h = 70 * mm
+        col = 0
+        for chart in monthly_charts:
+            if col == 0:
+                chart_y = y - chart_h
+                if chart_y < margin_y + 40:
+                    draw_footer()
+                    p.showPage()
+                    y = height - margin_y
+                    chart_y = y - chart_h
+            chart_x = margin_x + col * (chart_w + gap)
+            p.drawImage(chart, chart_x, chart_y, chart_w, chart_h, mask="auto")
+            if col == 1:
+                y = chart_y - 18
+            col = (col + 1) % 2
+        if col == 1:
+            y = chart_y - 18
+
+    # --- Pie chart removed ---
 
     # --- Breakdown Table ---
     p.setFont("Helvetica-Bold", 12)
@@ -371,7 +669,6 @@ def download_dashboard_pdf(request):
     y -= 18
 
     if total_usd > 0:
-        # Table Header
         p.setFont("Helvetica-Bold", 10)
         p.drawString(margin_x, y, "Type")
         p.drawRightString(width - margin_x - 100, y, "Amount (USD)")
@@ -381,7 +678,6 @@ def download_dashboard_pdf(request):
         p.line(margin_x, y, width - margin_x, y)
         y -= 15
 
-        # Table Rows
         p.setFont("Helvetica", 10)
         for label, amt in totals.items():
             percent = (amt / total_usd) * 100
@@ -389,7 +685,8 @@ def download_dashboard_pdf(request):
             p.drawRightString(width - margin_x - 100, y, f"{amt:,.2f}")
             p.drawRightString(width - margin_x, y, f"{percent:.1f}%")
             y -= 15
-            if y < margin_y + 50:  # New page if running out of space
+            if y < margin_y + 50:
+                draw_footer()
                 p.showPage()
                 y = height - margin_y
     else:
@@ -398,18 +695,19 @@ def download_dashboard_pdf(request):
         y -= 20
 
     # --- Footer ---
-    p.setStrokeColor(colors.lightgrey)
-    p.setLineWidth(0.5)
-    p.line(margin_x, margin_y + 10, width - margin_x, margin_y + 10)
-    p.setFont("Helvetica", 8)
-    p.drawString(margin_x, margin_y, f"Generated by: {extractor_name}")
-    p.drawRightString(width - margin_x, margin_y, f"Extracted: {extracted_at}")
+    draw_footer()
 
     # Save
     p.save()
     buffer.seek(0)
 
-    filename = f"Finance_Dashboard_{month_name[selected_month]}_{selected_year}.pdf"
+    if scope == "year":
+        filename = f"Finance_Dashboard_Year_{selected_year}.pdf"
+    elif scope == "months" and selected_months:
+        month_labels = "-".join([month_name[m][:3] for m in selected_months])
+        filename = f"Finance_Dashboard_Selected_{month_labels}_{selected_year}.pdf"
+    else:
+        filename = f"Finance_Dashboard_{month_name[selected_month]}_{selected_year}.pdf"
     response = HttpResponse(buffer, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename=\"{filename}\"'
     return response

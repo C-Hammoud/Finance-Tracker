@@ -313,6 +313,10 @@ def edit_expense(request, pk):
         if form.is_valid():
             form.save(modified_by=request.user)
             messages.success(request, "Expense updated successfully.")
+            month = request.POST.get("month")
+            year = request.POST.get("year")
+            if month and year:
+                return redirect(f"/list/?month={month}&year={year}")
             return redirect("monthly_list")
         else:
             messages.error(request, "Could not save changes: " + str(form.errors))

@@ -4,6 +4,8 @@
     <div class="modal-content">
       <form method="post" action="{% url 'edit_expense' expense.pk %}">
         {% csrf_token %}
+        <input type="hidden" name="month" value="{{ selected_month }}">
+        <input type="hidden" name="year" value="{{ selected_year }}">
         <div class="modal-header bg-primary text-white">
           <h5 class="modal-title" id="editModalLabel{{ expense.pk }}">Edit Expense</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>

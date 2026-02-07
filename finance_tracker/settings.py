@@ -47,6 +47,9 @@ EXCHANGE_RATES = {
     "SAR": 0.2667,  # 1 SAR ≈ 0.2667 USD
 }
 
+# Optional: self-ping URL to keep server warm
+SELF_PING_URL = os.environ.get("SELF_PING_URL", "http://127.0.0.1:8000/healthz/")
+
 # Application definition
 
 INSTALLED_APPS = [

@@ -57,6 +57,9 @@ def register(request):
         form = UserRegisterForm()
     return render(request, "registration/register.html", {"form": form})
 
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
 def upload_to_firebase(file_obj, filename):
     bucket = get_storage_bucket()
     if bucket is None:

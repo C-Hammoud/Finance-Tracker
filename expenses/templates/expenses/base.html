@@ -424,6 +424,16 @@
     });
   </script>
 
+  <script>
+    window.addEventListener('load', () => {
+      const ping = () => {
+        fetch('/healthz/', { method: 'GET', cache: 'no-store' }).catch(() => {});
+      };
+      ping();
+      setInterval(ping, 5 * 60 * 1000);
+    });
+  </script>
+
   {% block extrascript %}{% endblock %}
 </body>
 

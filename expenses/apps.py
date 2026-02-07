@@ -25,7 +25,7 @@ class ExpensesConfig(AppConfig):
                     urllib.request.urlopen(url, timeout=5)
                 except Exception:
                     pass
-                time.sleep(300)
+                time.sleep(60)
 
         t = threading.Thread(target=ping_loop, daemon=True)
         t.start()

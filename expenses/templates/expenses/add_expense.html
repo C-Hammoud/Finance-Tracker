@@ -2,10 +2,15 @@
 {% load widget_tweaks %}
 
 {% block content %}
-<div class="container my-5" style="max-width: 600px;">
+<div class="container my-5" style="max-width: 700px;">
+  <div class="page-hero p-3 p-md-4 mb-4">
+    <div>
+      <h2 class="page-title mb-1">Add New Expense</h2>
+      <div class="page-subtitle">Record one or more expenses in a single entry</div>
+    </div>
+  </div>
   <div class="card shadow-sm animate__animated animate__fadeInUp">
     <div class="card-body">
-      <h2 class="card-title mb-4 text-center">Add New Expense</h2>
       <form method="post" novalidate>
         {% csrf_token %}
 
@@ -29,8 +34,11 @@
         <div id="items-container">
           {% for item_form in items %}
           <div class="card mb-3 expense-row">
-            <div class="card-header bg-light expense-header">
+            <div class="card-header bg-light expense-header d-flex justify-content-between align-items-center">
               <span class="expense-header-text">Type: -</span>
+              <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn" aria-label="Remove">
+                <i class="fa fa-xmark"></i>
+              </button>
             </div>
             <div class="card-body expense-body">
               <div class="mb-3">
@@ -48,7 +56,7 @@
 
               <div class="mb-3 note-wrapper">
                 <label class="form-label">Note</label>
-                {{ item_form.note|add_class:"form-control note-field" }}
+                {{ item_form.note|add_class:"form-control note-field"|attr:"rows:2" }}
               </div>
             </div>
           </div>
@@ -57,8 +65,11 @@
 
         <div id="empty-form" class="d-none">
           <div class="card mb-3 expense-row">
-            <div class="card-header bg-light expense-header">
+            <div class="card-header bg-light expense-header d-flex justify-content-between align-items-center">
               <span class="expense-header-text">Type: -</span>
+              <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn" aria-label="Remove">
+                <i class="fa fa-xmark"></i>
+              </button>
             </div>
             <div class="card-body expense-body">
               <div class="mb-3">
@@ -76,7 +87,7 @@
 
               <div class="mb-3 note-wrapper">
                 <label class="form-label">Note</label>
-                {{ items.empty_form.note|add_class:"form-control note-field" }}
+                {{ items.empty_form.note|add_class:"form-control note-field"|attr:"rows:2" }}
               </div>
             </div>
           </div>
@@ -116,6 +127,14 @@
     lastExpandedRow = row;
   }
 
+  function updateTotalForms(delta) {
+    const totalFormsInput = document.getElementById('id_items-TOTAL_FORMS');
+    if (!totalFormsInput) return;
+    const current = parseInt(totalFormsInput.value, 10);
+    if (Number.isNaN(current)) return;
+    totalFormsInput.value = Math.max(0, current + delta);
+  }
+
   function initRow(row) {
     const typeSelect = row.querySelector('.type-select');
     const noteWrapper = row.querySelector('.note-wrapper');
@@ -133,18 +152,8 @@
       headerText.textContent = `${typeValue}: ${amountValue} ${currencyValue}`.trim();
     }
 
-    function toggleNote() {
-      if (typeSelect.value === 'other') {
-        noteWrapper.style.display = 'block';
-        noteField.disabled = false;
-      } else {
-        noteWrapper.style.display = 'none';
-        noteField.disabled = true;
-        noteField.value = '';
-      }
-    }
-    typeSelect.addEventListener('change', toggleNote);
-    toggleNote();
+    noteWrapper.style.display = 'block';
+    noteField.disabled = false;
     updateHeader();
     typeSelect.addEventListener('change', updateHeader);
     if (amountInput) amountInput.addEventListener('input', updateHeader);
@@ -159,6 +168,24 @@
     if (header) {
       header.style.cursor = 'pointer';
       header.addEventListener('click', () => setRowExpanded(row));
+    }
+
+    const removeBtn = row.querySelector('.remove-row-btn');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const rows = document.querySelectorAll('.expense-row');
+        if (rows.length <= 1) return;
+        if (lastExpandedRow === row) {
+          lastExpandedRow = null;
+        }
+        row.remove();
+        updateTotalForms(-1);
+        const remainingRows = document.querySelectorAll('.expense-row');
+        if (remainingRows.length > 0) {
+          setRowExpanded(remainingRows[0]);
+        }
+      });
     }
   }
 
@@ -198,6 +225,7 @@
     curSelects.forEach((select) => {
       if (select) {
         select.value = currencyValue;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
       }
     });
 
@@ -232,6 +260,7 @@
           const currencySelect = row.querySelector('select[name$="-currency"]');
           if (currencySelect) {
             currencySelect.value = currencyValue;
+            currencySelect.dispatchEvent(new Event('change', { bubbles: true }));
           }
           setRowExpanded(row);
         }

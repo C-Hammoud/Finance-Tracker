@@ -82,6 +82,7 @@ class ConsumptionFS(FirestoreModel):
     amount_usd: Decimal = Decimal("0.00")
     consumption_type: str = "market"
     note: str = ""
+    country: str = ""
     created_at: Optional[datetime] = None
     created_by: Optional[str] = None
     modified_at: Optional[datetime] = None
@@ -96,6 +97,7 @@ class ConsumptionFS(FirestoreModel):
             "amount_usd": str(self.amount_usd),
             "consumption_type": self.consumption_type,
             "note": self.note or "",
+            "country": self.country or "",
             "created_by": self.created_by,
             "modified_by": self.modified_by,
             "record_status": self.record_status,
@@ -118,6 +120,7 @@ class ConsumptionFS(FirestoreModel):
         inst.amount_usd = _as_decimal(data.get("amount_usd", "0"))
         inst.consumption_type = data.get("consumption_type", "market")
         inst.note = data.get("note", "") or ""
+        inst.country = data.get("country", "") or ""
         inst.created_by = data.get("created_by")
         inst.modified_by = data.get("modified_by")
         inst.record_status = data.get("record_status", "active")

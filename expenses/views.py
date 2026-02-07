@@ -196,6 +196,9 @@ def dashboard(request):
 
     total_usd = sum([float(i.amount_usd) for i in monthly]) if monthly else 0.0
     total_count = len(monthly)
+    yearly_total_usd = sum([float(i.amount_usd) for i in yearly_items]) if yearly_items else 0.0
+    yearly_total_count = len(yearly_items)
+    yearly_average = (yearly_total_usd / yearly_total_count) if yearly_total_count else 0.0
 
     totals = {}
     for i in monthly:
@@ -219,8 +222,9 @@ def dashboard(request):
         "yearly_overview": yearly_overview,
         "yearly_labels": json.dumps(yearly_labels),
         "yearly_values": json.dumps(yearly_values),
-        "total": total_usd,
-        "total_count": total_count,
+        "total": yearly_total_usd,
+        "total_count": yearly_total_count,
+        "average": yearly_average,
         "labels": json.dumps(labels),
         "values": json.dumps(values),
         "breakdown": breakdown,
@@ -252,7 +256,7 @@ def monthly_list(request):
         and i.date.year == selected_year
         and i.date.month == selected_month
     ]
-    qs.sort(key=lambda x: getattr(x, "created_at", datetime.min), reverse=True)
+    qs.sort(key=lambda x: getattr(x, "date", datetime.min), reverse=True)
 
     total_usd = sum([float(i.amount_usd) for i in qs]) if qs else Decimal('0.00')
 
@@ -454,49 +458,27 @@ def download_dashboard_pdf(request):
     # --- Pie Chart removed (stacked bars used instead) ---
     pie_image = None
 
-    # --- Monthly Charts ---
+    # --- Monthly Charts (one per country per month) ---
     monthly_charts = []
     if scope == "month":
-        month_items = period_items
-        month_totals = {}
+        months_for_charts = [selected_month]
+    else:
+        months_for_charts = selected_months if (scope == "months" and selected_months) else list(range(1, 13))
+
+    for m in months_for_charts:
+        month_items = [
+            i for i in period_items
+            if getattr(i, "date", None) is not None and i.date.month == m
+        ]
+        if not month_items:
+            continue
+        items_by_country = {}
         for i in month_items:
-            key = (i.consumption_type or "other").capitalize()
-            month_totals[key] = month_totals.get(key, 0.0) + float(i.amount_usd)
-        if month_totals:
-            labels = list(month_totals.keys())
-            values = [month_totals[k] for k in labels]
-            fig, ax = plt.subplots(figsize=(5.0, 3.6), dpi=100)
-            wedges, _ = ax.pie(
-                values,
-                startangle=90,
-                wedgeprops={"width": 0.4}
-            )
-            ax.legend(
-                wedges,
-                labels,
-                title="Category",
-                loc="center left",
-                bbox_to_anchor=(1.0, 0.5),
-                fontsize=8,
-                title_fontsize=8
-            )
-            ax.set_title(f"{month_name[selected_month]} {selected_year}")
-            ax.set_aspect("equal", adjustable="box")
-            buf = io.BytesIO()
-            plt.tight_layout()
-            plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
-            plt.close(fig)
-            buf.seek(0)
-            monthly_charts.append(ImageReader(buf))
-    elif scope in ("months", "year"):
-        months_for_donuts = selected_months if (scope == "months" and selected_months) else list(range(1, 13))
-        for m in months_for_donuts:
-            month_items = [
-                i for i in period_items
-                if getattr(i, "date", None) is not None and i.date.month == m
-            ]
+            country = (getattr(i, "country", "") or "Unknown").upper()
+            items_by_country.setdefault(country, []).append(i)
+        for country_code, items in items_by_country.items():
             month_totals = {}
-            for i in month_items:
+            for i in items:
                 key = (i.consumption_type or "other").capitalize()
                 month_totals[key] = month_totals.get(key, 0.0) + float(i.amount_usd)
             if not month_totals:
@@ -518,14 +500,18 @@ def download_dashboard_pdf(request):
                 fontsize=8,
                 title_fontsize=8
             )
-            ax.set_title(f"{month_name[m]} {selected_year}")
+            ax.set_title(f"{month_name[m]} {selected_year} • {country_code}")
             ax.set_aspect("equal", adjustable="box")
             buf = io.BytesIO()
             plt.tight_layout()
             plt.savefig(buf, format="png", bbox_inches="tight", transparent=True)
             plt.close(fig)
             buf.seek(0)
-            monthly_charts.append(ImageReader(buf))
+            monthly_charts.append({
+                "image": ImageReader(buf),
+                "totals": month_totals,
+                "total": sum(month_totals.values()),
+            })
 
     # --- Yearly Chart (stacked bar) ---
     yearly_image = None
@@ -592,6 +578,34 @@ def download_dashboard_pdf(request):
         p.drawString(margin_x, margin_y, f"Generated by: {extractor_name}")
         p.drawRightString(width - margin_x, margin_y, f"Extracted: {extracted_at}")
 
+    def draw_breakdown_table(start_y, breakdown_totals, overall_total, title="Breakdown"):
+        y_local = start_y
+        if not breakdown_totals or overall_total <= 0:
+            return y_local
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(margin_x, y_local, title)
+        y_local -= 12
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(margin_x, y_local, "Type")
+        p.drawRightString(width - margin_x - 80, y_local, "Amount")
+        p.drawRightString(width - margin_x, y_local, "%")
+        y_local -= 10
+        p.setStrokeColor(colors.grey)
+        p.line(margin_x, y_local, width - margin_x, y_local)
+        y_local -= 12
+        p.setFont("Helvetica", 9)
+        for label, amt in breakdown_totals.items():
+            percent = (amt / overall_total) * 100
+            p.drawString(margin_x, y_local, label)
+            p.drawRightString(width - margin_x - 80, y_local, f"{amt:,.2f}")
+            p.drawRightString(width - margin_x, y_local, f"{percent:.1f}%")
+            y_local -= 12
+            if y_local < margin_y + 50:
+                draw_footer()
+                p.showPage()
+                y_local = height - margin_y
+        return y_local
+
     # --- Header (colored band) ---
     header_h = 22 * mm
     p.setFillColorRGB(0.12, 0.44, 0.71)  # dark blue
@@ -637,7 +651,9 @@ def download_dashboard_pdf(request):
         chart_x = (width - chart_w) / 2
         chart_y = y - chart_h
         p.drawImage(yearly_image, chart_x, chart_y, chart_w, chart_h, mask="auto")
-        y = chart_y - 25
+        y = chart_y - 16
+        y = draw_breakdown_table(y, totals, total_usd, title="Yearly Breakdown")
+        y -= 10
 
     # --- Selected Months Charts ---
     if monthly_charts:
@@ -645,7 +661,7 @@ def download_dashboard_pdf(request):
         chart_w = (width - 2 * margin_x - gap) / 2
         chart_h = 70 * mm
         col = 0
-        for chart in monthly_charts:
+        for chart_meta in monthly_charts:
             if col == 0:
                 chart_y = y - chart_h
                 if chart_y < margin_y + 40:
@@ -654,45 +670,20 @@ def download_dashboard_pdf(request):
                     y = height - margin_y
                     chart_y = y - chart_h
             chart_x = margin_x + col * (chart_w + gap)
-            p.drawImage(chart, chart_x, chart_y, chart_w, chart_h, mask="auto")
+            p.drawImage(chart_meta["image"], chart_x, chart_y, chart_w, chart_h, mask="auto")
             if col == 1:
-                y = chart_y - 18
+                y = chart_y - 10
+                y = draw_breakdown_table(y, chart_meta["totals"], chart_meta["total"], title="Breakdown")
+                y -= 10
             col = (col + 1) % 2
         if col == 1:
-            y = chart_y - 18
+            y = chart_y - 10
+            y = draw_breakdown_table(y, chart_meta["totals"], chart_meta["total"], title="Breakdown")
+            y -= 10
 
     # --- Pie chart removed ---
 
-    # --- Breakdown Table ---
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(margin_x, y, "Breakdown by Type")
-    y -= 18
-
-    if total_usd > 0:
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(margin_x, y, "Type")
-        p.drawRightString(width - margin_x - 100, y, "Amount (USD)")
-        p.drawRightString(width - margin_x, y, "%")
-        y -= 12
-        p.setStrokeColor(colors.grey)
-        p.line(margin_x, y, width - margin_x, y)
-        y -= 15
-
-        p.setFont("Helvetica", 10)
-        for label, amt in totals.items():
-            percent = (amt / total_usd) * 100
-            p.drawString(margin_x, y, label)
-            p.drawRightString(width - margin_x - 100, y, f"{amt:,.2f}")
-            p.drawRightString(width - margin_x, y, f"{percent:.1f}%")
-            y -= 15
-            if y < margin_y + 50:
-                draw_footer()
-                p.showPage()
-                y = height - margin_y
-    else:
-        p.setFont("Helvetica", 10)
-        p.drawString(margin_x, y, "No data available for this period.")
-        y -= 20
+    # Overall breakdown removed; rendered per chart
 
     # --- Footer ---
     draw_footer()

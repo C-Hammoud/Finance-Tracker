@@ -40,6 +40,7 @@ class ConsumptionEditForm(forms.Form):
     currency = forms.ChoiceField(choices=CURRENCY_CHOICES)
     consumption_type = forms.ChoiceField(choices=TYPE_CHOICES)
     note = forms.CharField(widget=forms.Textarea, required=False)
+    country = forms.CharField(required=False)
 
     def __init__(self, *args, instance=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -51,6 +52,7 @@ class ConsumptionEditForm(forms.Form):
                 "currency": instance.currency,
                 "consumption_type": instance.consumption_type,
                 "note": instance.note,
+                "country": instance.country,
             }
 
     def save(self, modified_by=None):
@@ -61,6 +63,7 @@ class ConsumptionEditForm(forms.Form):
         inst.currency = data["currency"]
         inst.consumption_type = data["consumption_type"]
         inst.note = data.get("note", "")
+        inst.country = data.get("country", "") or inst.country
         inst.modified_by = str(modified_by.id) if modified_by else None
         inst.modified_at = datetime.utcnow()
         inst.save()  # Triggers compute_amount_usd and saves to Firestore

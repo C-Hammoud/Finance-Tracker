@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import authenticate, login, get_user_model
+from django.contrib.auth import authenticate, login, get_user_model, update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
@@ -10,7 +11,7 @@ from firebase_admin import auth as fb_auth, firestore
 from firebase_client import get_firestore_client, get_storage_bucket
 
 from .firestore_models import ConsumptionFS as Consumption
-from .forms import ExpenseDateForm, ExpenseLineItemForm, ConsumptionEditForm, UserRegisterForm
+from .forms import ExpenseDateForm, ExpenseLineItemForm, ConsumptionEditForm, UserRegisterForm, UserUpdateForm
 from .models import TZ_TO_COUNTRY, Currency, COUNTRIES
 
 from datetime import datetime, date
@@ -59,6 +60,33 @@ def register(request):
 
 def health_check(request):
     return JsonResponse({"status": "ok"})
+
+@login_required
+def user_settings(request):
+    profile_form = UserUpdateForm(instance=request.user)
+    password_form = PasswordChangeForm(request.user)
+
+    if request.method == "POST":
+        if "save_profile" in request.POST:
+            profile_form = UserUpdateForm(request.POST, instance=request.user)
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, "Profile updated successfully.")
+                return redirect("user_settings")
+            messages.error(request, "Please correct the profile errors.")
+        elif "save_password" in request.POST:
+            password_form = PasswordChangeForm(request.user, request.POST)
+            if password_form.is_valid():
+                user = password_form.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, "Password updated successfully.")
+                return redirect("user_settings")
+            messages.error(request, "Please correct the password errors.")
+
+    return render(request, "expenses/user_settings.html", {
+        "profile_form": profile_form,
+        "password_form": password_form,
+    })
 
 def upload_to_firebase(file_obj, filename):
     bucket = get_storage_bucket()

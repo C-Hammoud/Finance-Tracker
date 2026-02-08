@@ -292,6 +292,21 @@
     [data-bs-theme="dark"] .icon-btn.delete:hover {
       background: rgba(248,113,113,0.22);
     }
+
+    .pw-rule {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .pw-ok {
+      color: #198754;
+    }
+
+    .pw-bad {
+      color: #dc3545;
+    }
   </style>
 
   {% block extrahead %}{% endblock %}
@@ -328,6 +343,12 @@
             <a class="nav-link{% if request.resolver_match.url_name == 'monthly_list' %} active{% endif %}"
               href="{% url 'monthly_list' %}">
               <i class="fas fa-list me-1"></i>Expenses
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.url_name == 'user_settings' %} active{% endif %}"
+              href="{% url 'user_settings' %}">
+              <i class="fas fa-user-cog me-1"></i>Settings
             </a>
           </li>
 

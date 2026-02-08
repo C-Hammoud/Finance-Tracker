@@ -24,6 +24,14 @@ class UserRegisterForm(UserCreationForm):
         model = get_user_model()
         fields = ("username", "first_name", "last_name", "email", "password1", "password2")
 
+
+class UserUpdateForm(forms.ModelForm):
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = get_user_model()
+        fields = ("username", "first_name", "last_name", "email")
+
 class ExpenseDateForm(forms.Form):
     date = forms.DateField(required=True, initial=date.today, widget=forms.DateInput(attrs={"type": "date"}))
 

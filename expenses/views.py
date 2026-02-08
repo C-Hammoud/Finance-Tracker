@@ -61,6 +61,33 @@ def register(request):
 def health_check(request):
     return JsonResponse({"status": "ok"})
 
+def _sync_firebase_profile(user, password: str | None = None):
+    uid = user.username
+    if not uid:
+        return
+    email = user.email or ""
+    name = (user.get_full_name() or "").strip()
+    try:
+        fb_auth.update_user(
+            uid,
+            email=email or None,
+            display_name=name or None,
+            password=password or None,
+        )
+    except Exception as e:
+        print(f"Firebase auth update error: {e}")
+    try:
+        db = get_firestore_client()
+        if db:
+            user_ref = db.collection("users").document(uid)
+            user_ref.set({
+                "uid": uid,
+                "email": email,
+                "name": name,
+            }, merge=True)
+    except Exception as e:
+        print(f"Firestore profile update error: {e}")
+
 @login_required
 def user_settings(request):
     profile_form = UserUpdateForm(instance=request.user)
@@ -71,6 +98,7 @@ def user_settings(request):
             profile_form = UserUpdateForm(request.POST, instance=request.user)
             if profile_form.is_valid():
                 profile_form.save()
+                _sync_firebase_profile(request.user)
                 messages.success(request, "Profile updated successfully.")
                 return redirect("user_settings")
             messages.error(request, "Please correct the profile errors.")
@@ -79,6 +107,7 @@ def user_settings(request):
             if password_form.is_valid():
                 user = password_form.save()
                 update_session_auth_hash(request, user)
+                _sync_firebase_profile(user, password_form.cleaned_data.get("new_password1"))
                 messages.success(request, "Password updated successfully.")
                 return redirect("user_settings")
             messages.error(request, "Please correct the password errors.")

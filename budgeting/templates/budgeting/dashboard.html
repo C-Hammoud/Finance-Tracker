@@ -1,0 +1,153 @@
+{% extends 'expenses/base.html' %}
+{% load static %}
+
+{% block title %}Budget Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4 animate__animated animate__fadeIn">
+  <div class="page-hero p-3 p-md-4 mb-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+      <div>
+        <h2 class="page-title mb-1">📊 Budget vs Actual</h2>
+        <div class="page-subtitle">Monthly budget dashboard — forecast vs actual by category</div>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <form class="row g-2 m-0" method="get">
+          <div class="col-auto">
+            <select class="form-select form-select-sm year-pill" name="year" onchange="this.form.submit()">
+              {% for y in years %}<option value="{{ y }}" {% if year == y %}selected{% endif %}>{{ y }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-auto">
+            <select class="form-select form-select-sm year-pill" name="month" onchange="this.form.submit()">
+              <option value="1" {% if month == 1 %}selected{% endif %}>Jan</option>
+              <option value="2" {% if month == 2 %}selected{% endif %}>Feb</option>
+              <option value="3" {% if month == 3 %}selected{% endif %}>Mar</option>
+              <option value="4" {% if month == 4 %}selected{% endif %}>Apr</option>
+              <option value="5" {% if month == 5 %}selected{% endif %}>May</option>
+              <option value="6" {% if month == 6 %}selected{% endif %}>Jun</option>
+              <option value="7" {% if month == 7 %}selected{% endif %}>Jul</option>
+              <option value="8" {% if month == 8 %}selected{% endif %}>Aug</option>
+              <option value="9" {% if month == 9 %}selected{% endif %}>Sep</option>
+              <option value="10" {% if month == 10 %}selected{% endif %}>Oct</option>
+              <option value="11" {% if month == 11 %}selected{% endif %}>Nov</option>
+              <option value="12" {% if month == 12 %}selected{% endif %}>Dec</option>
+            </select>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+<div class="row gy-3 mb-4">
+  <div class="col-12 col-md-4">
+    <div class="stat-card shadow-sm p-3 h-100">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+        <div>
+          <div class="text-muted small">Total forecast (SAR)</div>
+          <div class="h4 mb-0">{{ total_forecast|floatformat:2 }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="stat-card shadow-sm p-3 h-100">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon" style="background: rgba(25,135,84,0.12); color:#198754;"><i class="fas fa-wallet"></i></div>
+        <div>
+          <div class="text-muted small">Total actual (SAR)</div>
+          <div class="h4 mb-0">{{ total_actual|floatformat:2 }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="stat-card shadow-sm p-3 h-100">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon {% if overall_variance > 0 %}bg-danger bg-opacity-25 text-danger{% endif %}"><i class="fas fa-percentage"></i></div>
+        <div>
+          <div class="text-muted small">Variance / Utilization</div>
+          <div class="h4 mb-0">{{ overall_variance|floatformat:2 }} / {% if overall_util %}{{ overall_util }}%{% else %}—{% endif %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if highest %}
+  <div class="glass-card p-3 mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+      <strong>Highest expense category ({{ month_str }})</strong>
+      <span class="fw-semibold">{{ highest.category.name }} — {{ highest.actual|floatformat:2 }} SAR</span>
+    </div>
+  </div>
+{% endif %}
+
+{% if top_overspends %}
+  <div class="glass-card p-3 mb-4">
+    <h6 class="mb-2">Top overspends</h6>
+    <ul class="list-group list-group-flush mb-0">
+      {% for r in top_overspends %}
+      <li class="list-group-item d-flex justify-content-between border-0 px-0">
+        <span>{{ r.category.name }}</span>
+        <span class="text-danger fw-semibold">+{{ r.variance|floatformat:2 }} ({{ r.utilization_pct|floatformat:1 }}%)</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+  <div class="glass-card p-3 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+      <strong>Budget vs Actual by category</strong>
+      <div>
+        <span class="badge bg-primary me-1">Income {{ income_total|floatformat:2 }} SAR</span>
+        <span class="badge bg-secondary">Expense {{ expense_total|floatformat:2 }} SAR</span>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table expense-table mb-0">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th class="text-end">Forecast</th>
+          <th class="text-end">Actual</th>
+          <th class="text-end">Variance</th>
+          <th class="text-end">Util %</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.category.name }} <small class="text-muted">({{ r.category.group.name }})</small></td>
+          <td class="text-end">{{ r.forecast|floatformat:2 }}</td>
+          <td class="text-end">{{ r.actual|floatformat:2 }}</td>
+          <td class="text-end {% if r.variance > 0 %}text-danger{% else %}text-success{% endif %}">{{ r.variance|floatformat:2 }}</td>
+          <td class="text-end">{% if r.utilization_pct %}{{ r.utilization_pct }}%{% else %}—{% endif %}</td>
+          <td>
+            <a href="{% url 'budgeting:budget_edit' year month r.category.id %}" class="icon-btn" aria-label="Edit budget"><i class="fa fa-pen"></i></a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-muted text-center py-4">No budget or actuals for this month. Add budgets and import transactions.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="{% url 'budgeting:transaction_list' %}" class="btn btn-outline-primary btn-sm shadow-sm"><i class="fas fa-list me-1"></i>Transactions</a>
+    <a href="{% url 'budgeting:transaction_add' %}" class="btn btn-primary btn-sm shadow-sm"><i class="fas fa-plus me-1"></i>Add transaction</a>
+    <a href="{% url 'budgeting:transaction_upload' %}" class="btn btn-outline-primary btn-sm shadow-sm"><i class="fas fa-file-upload me-1"></i>Upload CSV</a>
+    <a href="{% url 'budgeting:budget_list' %}" class="btn btn-outline-primary btn-sm shadow-sm"><i class="fas fa-calendar me-1"></i>Budgets</a>
+    <a href="{% url 'budgeting:savings_list' %}" class="btn btn-outline-primary btn-sm shadow-sm"><i class="fas fa-piggy-bank me-1"></i>Savings</a>
+    <a href="{% url 'budgeting:commitment_list' %}" class="btn btn-outline-primary btn-sm shadow-sm"><i class="fas fa-file-contract me-1"></i>Commitments</a>
+    <a href="{% url 'budgeting:financial_standing_list' %}" class="btn btn-outline-primary btn-sm shadow-sm"><i class="fas fa-balance-scale me-1"></i>Financial standing</a>
+    <a href="{% url 'budgeting:config_categories' %}" class="btn btn-outline-secondary btn-sm shadow-sm"><i class="fas fa-tags me-1"></i>Categories</a>
+    <a href="{% url 'budgeting:config_merchant_links' %}" class="btn btn-outline-secondary btn-sm shadow-sm"><i class="fas fa-link me-1"></i>Merchant links</a>
+  </div>
+</div>
+{% endblock %}

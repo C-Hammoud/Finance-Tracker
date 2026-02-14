@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "expenses.apps.ExpensesConfig",
+    "budgeting.apps.BudgetingConfig",
     "widget_tweaks",
 ]
 

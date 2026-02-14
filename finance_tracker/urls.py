@@ -38,4 +38,5 @@ urlpatterns = [
     path("accounts/logout/", logout_view, name="logout"),
     path("signup/", register, name="signup"),
     path("", include("expenses.urls")),
+    path("budgeting/", include("budgeting.urls")),
 ]
